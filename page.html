@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲管理系統</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .game-form,
+        .game-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        input {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-form">
+        <h2>新增遊戲</h2>
+        <form id="gameForm">
+            <div>
+                <label for="id">ID:</label>
+                <input type="text" id="id" required>
+            </div>
+            <div>
+                <label for="title">標題:</label>
+                <input type="text" id="title" required>
+            </div>
+            <div>
+                <label for="englishTitle">英文標題:</label>
+                <input type="text" id="englishTitle" required>
+            </div>
+            <div>
+                <label for="releaseDate">發售日期:</label>
+                <input type="date" id="releaseDate" required>
+            </div>
+            <div>
+                <label for="platform">平台:</label>
+                <input type="text" id="platform" required>
+            </div>
+            <div>
+                <label for="developer">開發商:</label>
+                <input type="text" id="developer" required>
+            </div>
+            <div>
+                <label for="genre">類型:</label>
+                <input type="text" id="genre" required>
+            </div>
+            <div>
+                <label for="features">特色:</label>
+                <input type="text" id="features" required>
+            </div>
+            <div>
+                <label for="rating">評分 (0-10):</label>
+                <input type="number" id="rating" min="0" max="10" step="0.1" required>
+            </div>
+            <div>
+                <label for="price">價格(台幣):</label>
+                <input type="number" id="price" min="0" step="0.01" required>
+            </div>
+            <button type="button" onclick="submitForm()">提交</button>
+            <button type="button" onclick="clearForm()">清除</button>
+        </form>
+    </div>
+
+    <div id="gameList"></div>
+
+    <script>
+        // 載入遊戲列表
+        async function loadGames() {
+            try {
+                const response = await fetch('http://localhost:3000/games');
+                const result = await response.json();
+                const gameList = document.getElementById('gameList');
+                gameList.innerHTML = '';
+
+                result.data.forEach(game => {
+                    const gameElement = document.createElement('div');
+                    gameElement.className = 'game-item';
+                    gameElement.innerHTML = `
+                        <h3>${game.title} (${game.englishTitle})</h3>
+                        <p>ID: ${game.id}</p>
+                        <p>發售日期: ${game.releaseDate}</p>
+                        <p>平台: ${Array.isArray(game.platform) ? game.platform.join(', ') : game.platform}</p>
+                        <p>開發商: ${game.developer}</p>
+                        <p>類型: ${game.genre.join(', ')}</p>
+                        <p>特色: ${game.features.join(', ')}</p>
+                        <p>評分: ${game.rating}</p>
+                        <p>價格: ${game.price}</p>
+                        <button onclick='editGame(${JSON.stringify(game).replace(/'/g, "&#39;")})'>編輯</button>
+                        <button onclick="deleteGame('${game.id}')">刪除</button>
+                    `;
+                    gameList.appendChild(gameElement);
+                });
+            } catch (error) {
+                alert('載入遊戲失敗');
+            }
+        }
+
+        // 提交表單
+        async function submitForm() {
+            const gameData = {
+                id: document.getElementById('id').value,
+                title: document.getElementById('title').value,
+                englishTitle: document.getElementById('englishTitle').value,
+                releaseDate: document.getElementById('releaseDate').value,
+                platform: document.getElementById('platform').value.split(',').map(p => p.trim()),
+                developer: document.getElementById('developer').value,
+                genre: document.getElementById('genre').value.split(',').map(g => g.trim()),
+                features: document.getElementById('features').value.split(',').map(f => f.trim()),
+                rating: parseFloat(document.getElementById('rating').value),
+                price: parseFloat(document.getElementById('price').value)
+            };
+
+            try {
+                const url = document.getElementById('id').disabled ?
+                    `http://localhost:3000/games?id=${gameData.id}` :
+                    'http://localhost:3000/games';
+
+                const response = await fetch(url, {
+                    method: document.getElementById('id').disabled ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(gameData)
+                });
+
+                const result = await response.json();
+                alert(result.message);
+                if (response.ok) {
+                    clearForm();
+                    loadGames();
+                }
+            } catch (error) {
+                alert('操作失敗');
+            }
+        }
+
+        // 編輯遊戲
+        function editGame(game) {
+            document.getElementById('id').value = game.id;
+            document.getElementById('id').disabled = true;
+            document.getElementById('title').value = game.title;
+            document.getElementById('englishTitle').value = game.englishTitle;
+            document.getElementById('releaseDate').value = game.releaseDate;
+            document.getElementById('platform').value = Array.isArray(game.platform) ? game.platform.join(', ') : game.platform;
+            document.getElementById('developer').value = game.developer;
+            document.getElementById('genre').value = game.genre.join(', ');
+            document.getElementById('features').value = game.features.join(', ');
+            document.getElementById('rating').value = game.rating;
+            document.getElementById('price').value = game.price;
+        }
+
+        // 刪除遊戲
+        async function deleteGame(id) {
+            if (!confirm('確定要刪除這個遊戲嗎？')) return;
+
+            try {
+                const response = await fetch(`http://localhost:3000/games?id=${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                alert(result.message);
+                if (response.ok) loadGames();
+            } catch (error) {
+                alert('刪除失敗');
+            }
+        }
+
+        // 清除表單
+        function clearForm() {
+            document.getElementById('gameForm').reset();
+            document.getElementById('id').disabled = false;
+        }
+
+        // 初始載入遊戲列表
+        loadGames();
+    </script>
+</body>
+
+</html>
